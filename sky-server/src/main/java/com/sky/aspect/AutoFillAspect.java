@@ -63,7 +63,7 @@ public class AutoFillAspect {
             try{
                 //通过反射设置更新人、更新时间
                 entity.getClass().getDeclaredMethod(AutoFillConstant.SET_UPDATE_TIME, LocalDateTime.class).invoke(entity, now);
-                entity.getClass().getDeclaredMethod(AutoFillConstant.SET_UPDATE_USER, long.class).invoke(entity, currentId);
+                entity.getClass().getDeclaredMethod(AutoFillConstant.SET_UPDATE_USER, Long.class).invoke(entity, currentId);
             } catch (Exception e) {
                 log.error("自动填充失败: {}", e.getMessage());
             }

@@ -5,7 +5,7 @@ import com.sky.constant.AutoFillConstant;
 import com.sky.context.BaseContext;
 import com.sky.enumeration.OperationType;
 import lombok.extern.slf4j.Slf4j;
-import net.sf.jsqlparser.statement.select.Join;
+
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.Signature;
 import org.aspectj.lang.annotation.Aspect;

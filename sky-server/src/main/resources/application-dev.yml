@@ -11,3 +11,10 @@ sky:
     access-key-id: LTAI5tAXTRpJroJDXE4y1czn
     access-key-secret: KLHuPxFjX3ZkuHSoRPOiM54VpSmVMX
     bucket-name: vp-vp
+  redis:
+    host: localhost
+    port: 6379
+    database: 10
+  wechat:
+    appid: wx450fd068669638b5
+    secret: 04417de5fbda26b469698bd83f1fe23c

@@ -1,17 +1,21 @@
 package com.sky.service.impl;
 
+import com.sky.dto.GoodsSalesDTO;
 import com.sky.entity.Orders;
 import com.sky.mapper.OrderMapper;
 import com.sky.mapper.UserMapper;
 import com.sky.service.ReportService;
-import com.sky.vo.OrderReportVO;
-import com.sky.vo.TurnoverReportVO;
-import com.sky.vo.UserReportVO;
+import com.sky.service.WorkspaceService;
+import com.sky.vo.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletResponse;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -19,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -27,6 +32,8 @@ public class ReportServiceImpl implements ReportService {
     private OrderMapper orderMapper;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private WorkspaceService workspaceService;
 
 
     /**
@@ -151,5 +158,72 @@ public class ReportServiceImpl implements ReportService {
                 .validOrderCount(totalValidCount)
                 .orderCompletionRate(orderCompletionRate)
                 .build();
+    }
+
+    @Override
+    public SalesTop10ReportVO getSalesTop10(LocalDate begin, LocalDate end) {
+
+        LocalDateTime beginTime = LocalDateTime.of(begin, LocalTime.MIN);
+        LocalDateTime endTime = LocalDateTime.of(end, LocalTime.MAX);
+
+        List<GoodsSalesDTO> saleTop10List = orderMapper.getSalesTop10(beginTime, endTime);
+        List<String> nameList = saleTop10List.stream().map(GoodsSalesDTO::getName).collect(Collectors.toList());
+        String nameListStr = StringUtils.join(nameList, ",");
+
+        List<Integer> goodsNameList = saleTop10List.stream().map(GoodsSalesDTO::getNumber).collect(Collectors.toList());
+        String numberList = StringUtils.join(goodsNameList, ",");
+
+        return SalesTop10ReportVO
+                .builder()
+                .nameList(nameListStr)
+                .numberList(numberList)
+                .build();
+
+    }
+
+    @Override
+    public void exportBussinessData(HttpServletResponse response) {
+        //查询数据库，获取营业数据
+        LocalDate datebegin = LocalDate.now().minusDays(30);
+        LocalDate dateEnd = LocalDate.now().minusDays(1);
+        //将日期转换为LocalDateTime
+        LocalDateTime beginTime = LocalDateTime.of(datebegin, LocalTime.MIN);
+        LocalDateTime endTime = LocalDateTime.of(dateEnd, LocalTime.MAX);
+        BusinessDataVO businessDatavo = workspaceService.getBusinessData(beginTime, endTime);
+        //将营业数据写入Excel
+        InputStream in = this.getClass().getClassLoader().getResourceAsStream("template/business_data_template.xlsx");
+        try {
+            XSSFWorkbook excel = new XSSFWorkbook(in);
+            excel.getSheet("sheet1").getRow(1).getCell(1).setCellValue("时间" + datebegin + "至" + dateEnd);
+            excel.getSheet("sheet1").getRow(3).getCell(2).setCellValue(businessDatavo.getTurnover());
+            excel.getSheet("sheet1").getRow(3).getCell(4).setCellValue(businessDatavo.getOrderCompletionRate());
+            excel.getSheet("sheet1").getRow(3).getCell(6).setCellValue(businessDatavo.getNewUsers());
+            excel.getSheet("sheet1").getRow(4).getCell(2).setCellValue(businessDatavo.getValidOrderCount());
+            excel.getSheet("sheet1").getRow(4).getCell(4).setCellValue(businessDatavo.getUnitPrice());
+            //填充明细数据
+            for (int i = 0; i < 30; i++) {
+                LocalDate date = datebegin.plusDays(i);
+                LocalDateTime dayBegin = LocalDateTime.of(date, LocalTime.MIN);
+                LocalDateTime dayEnd = LocalDateTime.of(date, LocalTime.MAX);
+                //查询每天的营业数据
+                BusinessDataVO dailyData = workspaceService.getBusinessData(dayBegin, dayEnd);
+                excel.getSheet("sheet1").getRow(7 + i).getCell(1).setCellValue(date.toString());
+                excel.getSheet("sheet1").getRow(7 + i).getCell(2).setCellValue(dailyData.getTurnover());
+                excel.getSheet("sheet1").getRow(7 + i).getCell(3).setCellValue(dailyData.getValidOrderCount());
+                excel.getSheet("sheet1").getRow(7 + i).getCell(4).setCellValue(dailyData.getOrderCompletionRate());
+                excel.getSheet("sheet1").getRow(7 + i).getCell(5).setCellValue(dailyData.getUnitPrice());
+                excel.getSheet("sheet1").getRow(7 + i).getCell(6).setCellValue(dailyData.getNewUsers());
+            }
+
+            //通过输出流下载
+            ServletOutputStream out = response.getOutputStream();
+            excel.write(out);
+            //关闭资源
+            excel.close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+
     }
 }
